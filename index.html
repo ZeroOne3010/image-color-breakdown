@@ -1,0 +1,148 @@
+<html lang="en">
+<head>
+  <title>Image color breakdown</title>
+
+  <script type="text/javascript">
+    const submitFile = () => {
+      const fileSelector = document.getElementById('file-input');
+      const canvas = document.getElementsByTagName('canvas')[0];
+      const tableCaption = document.getElementsByTagName('caption')[0];
+      const imageInfoContainer = document.getElementById('image-info');
+      const colorStatsContainer = document.getElementById('color-stats');
+      const imageWidthContainer = document.getElementById('image-width');
+      const imageHeightContainer = document.getElementById('image-height');
+
+      const TRANSPARENTS = 'transparents';
+      const MAX_COLORS = 100;
+
+      const context = canvas.getContext("2d");
+      const fileReader = new FileReader();
+      fileReader.onload = event => {
+        var image = new Image();
+        image.onload = function () {
+          const width = image.width;
+
+          const height = image.height;
+          canvas.width = width;
+          canvas.height = height;
+
+          imageInfoContainer.style.display = 'block';
+          imageWidthContainer.innerHTML = width;
+
+          imageHeightContainer.innerHTML = height;
+
+          context.drawImage(image, 0, 0);
+
+          // Collect colors into a map:
+          const colors = {};
+          for (let x = 0; x < width; x++) {
+            for (let y = 0; y < height; y++) {
+              const pixel = context.getImageData(x, y, 1, 1).data;
+              const r = pixel[0].toString(16).padStart(2, '0');
+              const g = pixel[1].toString(16).padStart(2, '0');
+              const b = pixel[2].toString(16).padStart(2, '0');
+              const a = pixel[3].toString(16).padStart(2, '0');
+              let hexColor = `${r}${g}${b}`;
+
+              if (a !== 'ff') {
+                hexColor = TRANSPARENTS;
+              }
+
+              if (!colors[hexColor]) {
+                colors[hexColor] = 1;
+              } else {
+                colors[hexColor]++;
+              }
+            }
+          }
+
+          // Transform the map into a sorted array:
+          const colorArray = [];
+          for (let color in colors) {
+            colorArray.push({hexColor: color, count: colors[color]});
+          }
+          colorArray.sort((a, b) => b.count - a.count);
+
+          // Create the HTML output:
+          tableCaption.innerText = `The top ${MAX_COLORS} colors of the image`;
+          colorStatsContainer.innerHTML = colorArray.slice(0, MAX_COLORS).map((color, i) => {
+              const colorCellContent = color.hexColor !== TRANSPARENTS
+                ? `<a href="https://colornames.org/color/${color.hexColor}">${color.hexColor}</a>`
+                : color.hexColor;
+              return `
+               <tr id="color-${color.hexColor}">
+                 <td>${i}</td>
+                 <td class="color-cell"><div style="background-color: ${color.hexColor};"></div>${colorCellContent}</td>
+                 <td>${color.count}</td>
+               </tr>`;
+            }
+          ).join('');
+        }
+        image.src = event.target.result;
+      }
+      fileReader.readAsDataURL(fileSelector.files[0]);
+    };
+  </script>
+
+  <style>
+    #image-info {
+      display: none;
+    }
+
+    canvas {
+      border: 1px solid black;
+    }
+
+    table {
+      margin-top: 2em;
+    }
+
+    td:last-child {
+      text-align: right;
+    }
+
+    td {
+      font-family: monospace;
+    }
+
+    .color-cell > div {
+      border: 1px solid #000000;
+      display: inline-block;
+      margin-right: 1em;
+      height: 1em;
+      width: 1em;
+    }
+  </style>
+
+</head>
+<body>
+<div>
+  <p>Pick an image to pick its colors apart:</p>
+  <input id="file-input" type="file" accept=".png, .gif, .bmp, .tif, .tiff, .ico"/>
+  <button onclick="submitFile()">Submit</button>
+</div>
+
+<div id="image-info">
+  <div>
+    Width: <span id="image-width"></span> px<br/>
+    Height: <span id="image-height"></span> px
+  </div>
+  <canvas></canvas>
+
+  <table>
+    <caption></caption>
+    <thead>
+    <tr>
+      <th>#</th>
+      <th>Color</th>
+      <th>Count</th>
+    </tr>
+    </thead>
+    <tbody id="color-stats"></tbody>
+    <tfoot></tfoot>
+  </table>
+</div>
+
+
+</body>
+</html>
