@@ -5,7 +5,10 @@
   <script type="text/javascript">
     const submitFile = () => {
       const fileSelector = document.getElementById('file-input');
-      const canvas = document.getElementsByTagName('canvas')[0];
+      const canvas = document.getElementById('main-canvas');
+      const rCanvas = document.getElementById('r-canvas');
+      const gCanvas = document.getElementById('g-canvas');
+      const bCanvas = document.getElementById('b-canvas');
       const tableCaption = document.getElementsByTagName('caption')[0];
       const imageInfoContainer = document.getElementById('image-info');
       const colorStatsContainer = document.getElementById('color-stats');
@@ -33,8 +36,19 @@
 
           context.drawImage(image, 0, 0);
 
-          // Collect colors into a map:
+          // Collect colors into a map
+          // -- and the r/g/b component counts into their own map:
           const colors = {};
+          const rgbComponents = {r: {}, g: {}, b: {}};
+
+          const incrementRgb = (component, value) => {
+            if (!rgbComponents[component][value]) {
+              rgbComponents[component][value] = 1;
+            } else {
+              rgbComponents[component][value]++;
+            }
+          }
+
           for (let x = 0; x < width; x++) {
             for (let y = 0; y < height; y++) {
               const pixel = context.getImageData(x, y, 1, 1).data;
@@ -53,10 +67,14 @@
               } else {
                 colors[hexColor]++;
               }
+
+              incrementRgb('r', r);
+              incrementRgb('g', g);
+              incrementRgb('b', b);
             }
           }
 
-          // Transform the map into a sorted array:
+          // Transform the color map into a sorted array:
           const colorArray = [];
           for (let color in colors) {
             colorArray.push({hexColor: color, count: colors[color]});
@@ -77,6 +95,65 @@
                </tr>`;
             }
           ).join('');
+
+          // Create r/g/b histograms.
+          // First sort and normalize the counts:
+          const rArray = [];
+          let maxR = 0;
+          for (let i = 0; i < 256; i++) {
+            const value = rgbComponents.r[i.toString(16).padStart(2, '0')];
+            if (value > maxR) {
+              maxR = value;
+            }
+            rArray.push(value);
+          }
+
+          const gArray = [];
+          let maxG = 0;
+          for (let i = 0; i < 256; i++) {
+            const value = rgbComponents.g[i.toString(16).padStart(2, '0')];
+            if (value > maxG) {
+              maxG = value;
+            }
+            gArray.push(value);
+          }
+
+          const bArray = [];
+          let maxB = 0;
+          for (let i = 0; i < 256; i++) {
+            const value = rgbComponents.b[i.toString(16).padStart(2, '0')];
+            if (value > maxB) {
+              maxB = value;
+            }
+            bArray.push(value);
+          }
+
+          for (let i = 0; i < 256; i++) {
+            rArray[i] = rArray[i] / (maxR > 0 ? maxR : 1) * 100;
+            gArray[i] = gArray[i] / (maxG > 0 ? maxG : 1) * 100;
+            bArray[i] = bArray[i] / (maxB > 0 ? maxB : 1) * 100;
+          }
+
+          const rContext = rCanvas.getContext("2d");
+          const gContext = gCanvas.getContext("2d");
+          const bContext = bCanvas.getContext("2d");
+
+          rCanvas.width = 256;
+          gCanvas.width = 256;
+          bCanvas.width = 256;
+          rCanvas.height = 100;
+          gCanvas.height = 100;
+          bCanvas.height = 100;
+
+          rContext.fillStyle = "#FF0000";
+          gContext.fillStyle = "#00FF00";
+          bContext.fillStyle = "#0000FF";
+
+          for (let x = 0; x < 256; x++) {
+            rContext.fillRect(x, 100 - rArray[x], 1, rArray[x]);
+            gContext.fillRect(x, 100 - gArray[x], 1, gArray[x]);
+            bContext.fillRect(x, 100 - bArray[x], 1, bArray[x]);
+          }
         }
         image.src = event.target.result;
       }
@@ -91,6 +168,7 @@
 
     canvas {
       border: 1px solid black;
+      margin-top: 1em;
     }
 
     table {
@@ -127,7 +205,19 @@
     Width: <span id="image-width"></span> px<br/>
     Height: <span id="image-height"></span> px
   </div>
-  <canvas></canvas>
+
+  <canvas id="main-canvas"></canvas>
+
+  <details>
+    <summary>
+      Red/Green/Blue histograms
+    </summary>
+    <div>
+      <canvas id="r-canvas"></canvas>
+      <canvas id="g-canvas"></canvas>
+      <canvas id="b-canvas"></canvas>
+    </div>
+  </details>
 
   <table>
     <caption></caption>
