@@ -10,13 +10,16 @@
       const gCanvas = document.getElementById('g-canvas');
       const bCanvas = document.getElementById('b-canvas');
       const tableCaption = document.getElementsByTagName('caption')[0];
+      const ordinalTableCaption = document.getElementsByTagName('caption')[1];
       const imageInfoContainer = document.getElementById('image-info');
       const colorStatsContainer = document.getElementById('color-stats');
+      const ordinalStatsContainer = document.getElementById('ordinal-stats');
       const imageWidthContainer = document.getElementById('image-width');
       const imageHeightContainer = document.getElementById('image-height');
 
       const TRANSPARENTS = 'transparents';
       const MAX_COLORS = 100;
+      const MAX_ORDINAL_COLORS = 1000;
 
       const context = canvas.getContext("2d");
       const fileReader = new FileReader();
@@ -38,6 +41,7 @@
 
           // Collect colors into a map
           // -- and the r/g/b component counts into their own map:
+          let ordinal = 1;
           const colors = {};
           const rgbComponents = {r: {}, g: {}, b: {}};
 
@@ -49,8 +53,8 @@
             }
           }
 
-          for (let x = 0; x < width; x++) {
-            for (let y = 0; y < height; y++) {
+          for (let y = 0; y < height; y++) {
+            for (let x = 0; x < width; x++) {
               const pixel = context.getImageData(x, y, 1, 1).data;
               const r = pixel[0].toString(16).padStart(2, '0');
               const g = pixel[1].toString(16).padStart(2, '0');
@@ -63,9 +67,10 @@
               }
 
               if (!colors[hexColor]) {
-                colors[hexColor] = 1;
+                colors[hexColor] = {count: 1, ordinal: ordinal};
+                ordinal++;
               } else {
-                colors[hexColor]++;
+                colors[hexColor].count++;
               }
 
               incrementRgb('r', r);
@@ -77,12 +82,14 @@
           // Transform the color map into a sorted array:
           const colorArray = [];
           for (let color in colors) {
-            colorArray.push({hexColor: color, count: colors[color]});
+            colorArray.push({hexColor: color, count: colors[color].count, ordinal: colors[color].ordinal});
           }
+          const ordinalArray = structuredClone(colorArray).sort((a, b) => a.ordinal - b.ordinal);
+
           colorArray.sort((a, b) => b.count - a.count);
 
           // Create the HTML output:
-          tableCaption.innerText = `The top ${MAX_COLORS} colors of the image`;
+          tableCaption.innerText = `The top ${Math.min(MAX_COLORS, colorArray.length)} colors of the image`;
           colorStatsContainer.innerHTML = colorArray.slice(0, MAX_COLORS).map((color, i) => {
               const link = color.hexColor !== TRANSPARENTS
                 ? `<span class="name-link">(<a href="https://colornames.org/color/${color.hexColor}">name?</a>)</span>`
@@ -91,6 +98,23 @@
                <tr id="color-${color.hexColor}">
                  <td>${i}</td>
                  <td class="color-cell"><div style="background-color: #${color.hexColor};"></div>#${color.hexColor} ${link}</td>
+                 <td>${color.count}</td>
+                 <td>${color.ordinal}</td>
+               </tr>`;
+            }
+          ).join('');
+
+          // Create the HTML output:
+          ordinalTableCaption.innerText = `The first ${Math.min(MAX_ORDINAL_COLORS, ordinalArray.length)} colors to appear in the image`;
+          ordinalStatsContainer.innerHTML = ordinalArray.slice(0, MAX_ORDINAL_COLORS).map((color, i) => {
+              const link = color.hexColor !== TRANSPARENTS
+                ? `<span class="name-link">(<a href="https://colornames.org/color/${color.hexColor}">name?</a>)</span>`
+                : '';
+              return `
+               <tr id="color-${color.hexColor}">
+                 <td>${i}</td>
+                 <td class="color-cell"><div style="background-color: #${color.hexColor};"></div>#${color.hexColor} ${link}</td>
+                 <td>${color.ordinal}</td>
                  <td>${color.count}</td>
                </tr>`;
             }
@@ -178,6 +202,7 @@
 
     table {
       margin-top: 2em;
+      width: auto;
     }
 
     td:last-child {
@@ -224,16 +249,31 @@
     </div>
   </details>
 
-  <table>
+  <table style="float: left;">
     <caption></caption>
     <thead>
     <tr>
       <th>#</th>
       <th>Color</th>
       <th>Count</th>
+      <th>Ordinal number</th>
     </tr>
     </thead>
     <tbody id="color-stats"></tbody>
+    <tfoot></tfoot>
+  </table>
+
+  <table style="float: right;">
+    <caption></caption>
+    <thead>
+    <tr>
+      <th>#</th>
+      <th>Color</th>
+      <th>Ordinal number</th>
+      <th>Count</th>
+    </tr>
+    </thead>
+    <tbody id="ordinal-stats"></tbody>
     <tfoot></tfoot>
   </table>
 </div>
